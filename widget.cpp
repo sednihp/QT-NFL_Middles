@@ -6,30 +6,41 @@
 #include <QtSql/QSqlError>
 #include <QGridLayout>
 
-Widget::Widget(QWidget *parent)
+NFLMiddle::NFLMiddle(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
 {
     // ----------------------
     // Create all the objects
     // ----------------------
-    gameLabel = new QLabel("Game 1");
+    gameLabel = new QLabel("NFL Middle");
     gameLabel->setAlignment(Qt::AlignCenter);
 
     QFont font = gameLabel->font();
     font.setPointSize(font.pointSize() + 10);
     gameLabel->setFont(font);
 
-    amountLabel = new QLabel("Amount (£)");
+    amountLabel = new QLabel("Total Stake (£)");
     amountLabel->setAlignment(Qt::AlignCenter);
     amountStake = new QLineEdit("40");
     amountStake->setAlignment(Qt::AlignCenter);
 
     connect(amountStake, SIGNAL(textEdited(QString)), this, SLOT(calculateStakes()));
 
+    seasonLabel = new QLabel("Season");
+    seasonLabel->setAlignment(Qt::AlignCenter);
+    qleSeason = new QLineEdit("2021");
+    qleSeason->setAlignment(Qt::AlignCenter);
+
+    weekLabel = new QLabel("Week");
+    weekLabel->setAlignment(Qt::AlignCenter);
+    qleWeek = new QLineEdit("1");
+    qleWeek->setAlignment(Qt::AlignCenter);
+
     homeLabel = new QLabel("Home");
     homeLabel->setAlignment(Qt::AlignCenter);
     favHome = new QRadioButton();
+    favHome->setChecked(true);
     underdogHome = new QRadioButton();
 
     spreadLabel = new QLabel("Spread");
@@ -38,6 +49,8 @@ Widget::Widget(QWidget *parent)
     spread = new QLineEdit("3");
     spread->setAlignment(Qt::AlignCenter);
     spread->setMaxLength(5);
+
+    connect(spread, SIGNAL(textEdited(QString)), this, SLOT(spreadChanged()));
 
     favLabel = new QLabel("Favourite");
     underdogLabel = new QLabel("Underdog");
@@ -61,13 +74,19 @@ Widget::Widget(QWidget *parent)
     stakeLabel = new QLabel("Stake (£)");
     stakeLabel->setAlignment(Qt::AlignCenter);
 
+    QPalette bluePalette;
+    bluePalette.setColor(QPalette::Base,QColor(0x66, 0x99, 0xff));
+    bluePalette.setColor(QPalette::Text,Qt::black);
+
     favOdds = new QLineEdit("1.66");
     favOdds->setAlignment(Qt::AlignCenter);
+    //favOdds->setPalette(bluePalette);
 
     connect(favOdds, SIGNAL(textEdited(QString)), this, SLOT(calculateStakes()));
 
     underdogOdds = new QLineEdit("1.75");
     underdogOdds->setAlignment(Qt::AlignCenter);
+    //underdogOdds->setPalette(bluePalette);
 
     connect(underdogOdds, SIGNAL(textEdited(QString)), this, SLOT(calculateStakes()));
 
@@ -163,12 +182,15 @@ Widget::Widget(QWidget *parent)
     profitPercent->setAlignment(Qt::AlignCenter);
     profitPercent->setReadOnly(true);
 
-    winPercentLabel = new QLabel("Win %");
+    winPercentLabel = new QLabel("Total Win %");
     winPercentLabel->setAlignment(Qt::AlignCenter);
 
     winPercent = new QLineEdit();
     winPercent->setAlignment(Qt::AlignCenter);
     winPercent->setReadOnly(true);
+
+    saveButton = new QPushButton("Save game");
+    connect(saveButton, SIGNAL(clicked()), this, SLOT(saveGame()));
 
     // -----------------
     // Create the layout
@@ -180,6 +202,12 @@ Widget::Widget(QWidget *parent)
 
     mainLayout->addWidget(amountLabel, 0, 2);
     mainLayout->addWidget(amountStake, 0, 3);
+
+    mainLayout->addWidget(seasonLabel, 0, 4);
+    mainLayout->addWidget(qleSeason, 0, 5);
+
+    mainLayout->addWidget(weekLabel, 1, 4);
+    mainLayout->addWidget(qleWeek, 1, 5);
 
     mainLayout->addWidget(homeLabel, 2, 0);
     mainLayout->addWidget(spreadLabel, 2, 1);
@@ -233,18 +261,21 @@ Widget::Widget(QWidget *parent)
     mainLayout->addWidget(winPercentLabel, 3, 11);
     mainLayout->addWidget(winPercent, 3, 12);
 
+    mainLayout->addWidget(saveButton, 5, 11, 1, 2);
+
     setLayout(mainLayout);
     setWindowTitle("NFL Middles");
 
     calculateStakes();
 }
 
-Widget::~Widget()
+NFLMiddle::~NFLMiddle()
 {
     delete ui;
 }
 
-void Widget::favTeamChanged()
+// Update the labels when the favourite team changes
+void NFLMiddle::favTeamChanged()
 {
     QString favWinsStr = favTeam->displayText() + " wins by " + spread->displayText() + " or more";
     favWinsLabel->setText(favWinsStr);
@@ -256,13 +287,66 @@ void Widget::favTeamChanged()
     middleLabel->setText(middleStr);
 }
 
-void Widget::underdogTeamChanged()
+// Update the label when the underdog team changes
+void NFLMiddle::underdogTeamChanged()
 {
     QString underdogStr = underdogTeam->displayText() + " wins";
     underdogWinsLabel->setText(underdogStr);
 }
 
-void Widget::calculateStakes()
+void NFLMiddle::spreadChanged()
+{
+    favTeamChanged();
+    calculateStakes();
+}
+
+#include <QDir>
+
+void NFLMiddle::saveGame()
+{
+    QString qsSeason = qleSeason->displayText();
+    QString qsWeek = qleWeek->displayText();
+
+    QString qsGame;
+    if(favHome->isChecked())
+    {
+        qsGame = underdogTeam->displayText() + " @ " + favTeam->displayText();
+    }
+    else
+    {
+        qsGame = favTeam->displayText() + " @ " + underdogTeam->displayText();
+    }
+
+    QString qsSpread = spread->displayText();
+    QString qsStake = amountStake->displayText();
+    QString qsEP = profitAmount->displayText();
+
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    db.setDatabaseName("Database\\NFLSpreadStats.db");
+    bool db_ok = db.open();
+
+    if(db_ok)
+    {
+        QSqlQuery insertQuery;
+        insertQuery.prepare("INSERT INTO BetHistory (Season, Week, Game, Spread, Stake, EP) VALUES (:season, :week, :game, :spread, :stake, :ep)");
+        insertQuery.bindValue(":season", qsSeason);
+        insertQuery.bindValue(":week", qsWeek);
+        insertQuery.bindValue(":game", qsGame);
+        insertQuery.bindValue(":spread", qsSpread);
+        insertQuery.bindValue(":stake", qsStake);
+        insertQuery.bindValue(":ep", qsEP);
+        insertQuery.exec();
+
+        qInfo() << insertQuery.lastError();
+    }
+
+    db.close();
+}
+
+// Calculate the stakes that should be used
+// Calculate the probability of each event
+// Calculate the expected profit
+void NFLMiddle::calculateStakes()
 {
     double dAmount = amountStake->displayText().toDouble();
 
@@ -278,12 +362,16 @@ void Widget::calculateStakes()
     double dUnderdogComm = underdogComm->currentText().toDouble() / 100;
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("F:\\Code\\C++\\Qt\\Middles\\Database\\NFLSpreadStats.db");
+    db.setDatabaseName("Database\\NFLSpreadStats.db");
     bool db_ok = db.open();
+
+    qInfo() << db.lastError() << db.databaseName();
 
     if(db_ok)
     {
-        QSqlQuery query("SELECT * FROM NFLStats where spread = " + QString::number(dSpread), db);
+        QSqlQuery query;
+        query.prepare("SELECT * FROM NFLStats where spread = :spread");
+        query.bindValue(":spread", dSpread);
         query.setForwardOnly(true);
         query.exec();
         query.first();
@@ -312,11 +400,17 @@ void Widget::calculateStakes()
         double dFavStake = dFavPercentStake * dAmount;
         double dUnderdogStake = dUnderdogPercentStake * dAmount;
 
+        QPalette yellowPalette;
+        yellowPalette.setColor(QPalette::Base,QColor(0xff, 0xff, 0x66));
+        yellowPalette.setColor(QPalette::Text,Qt::black);
+
         QString qsFavStake = QString::number(dFavStake, 'f', 2);
         favStake->setText(qsFavStake);
+        favStake->setPalette(yellowPalette);
 
         QString qsUnderdogStake = QString::number(dUnderdogStake, 'f', 2);
         underdogStake->setText(qsUnderdogStake);
+        underdogStake->setPalette(yellowPalette);
 
         double dbCoverPerc = query.value(nCoverPercentCol).toDouble();
         double dbPushPerc = query.value(nPushPercentCol).toDouble();
@@ -337,14 +431,57 @@ void Widget::calculateStakes()
         double dMiddleProfit = ((dFavStake * dFavOdds) + (dUnderdogStake * dUnderdogOdds)) - dAmount;
         double dLoseProfit = (dUnderdogStake * dUnderdogOdds) - dAmount;
 
+        QPalette redPalette;
+        redPalette.setColor(QPalette::Base,QColor(0xff, 0x50, 0x50));
+        redPalette.setColor(QPalette::Text,Qt::black);
+
+        QPalette greenPalette;
+        greenPalette.setColor(QPalette::Base,QColor(0x99, 0xff, 0x66));
+        greenPalette.setColor(QPalette::Text,Qt::black);
+
         QString qsFavWinsProfit = QString::number(dWinProfit, 'f', 2);
         favWinsProfit->setText(qsFavWinsProfit);
+        if(dWinProfit > 0)
+        {
+            favWinsProfit->setPalette(greenPalette);
+        }
+        else
+        {
+            favWinsProfit->setPalette(redPalette);
+        }
+
         QString qsPushProfit = QString::number(dPushProfit, 'f', 2);
         pushProfit->setText(qsPushProfit);
+        if(dPushProfit > 0)
+        {
+            pushProfit->setPalette(greenPalette);
+        }
+        else
+        {
+            pushProfit->setPalette(redPalette);
+        }
+
         QString qsMiddleProfit = QString::number(dMiddleProfit, 'f', 2);
         middleProfit->setText(qsMiddleProfit);
+        if(dMiddleProfit > 0)
+        {
+            middleProfit->setPalette(greenPalette);
+        }
+        else
+        {
+            middleProfit->setPalette(redPalette);
+        }
+
         QString qsLoseProfit = QString::number(dLoseProfit, 'f', 2);
         underdogWinsProfit->setText(qsLoseProfit);
+        if(dLoseProfit > 0)
+        {
+            underdogWinsProfit->setPalette(greenPalette);
+        }
+        else
+        {
+            underdogWinsProfit->setPalette(redPalette);
+        }
 
         double dWinEP = dWinProfit * (dbCoverPerc / 100);
         double dPushEP = dbPushPerc * (dPushProfit / 100);
@@ -354,11 +491,42 @@ void Widget::calculateStakes()
         double dEP = dWinEP + dPushEP + dMiddleEP + dLoseEP;
         double dEPPercent = (dEP / dAmount) * 100;
 
+        QPalette tealPalette;
+        tealPalette.setColor(QPalette::Base,QColor(0x66, 0xff, 0xcc));
+        tealPalette.setColor(QPalette::Text,Qt::black);
+
+        QPalette lightBluePalette;
+        lightBluePalette.setColor(QPalette::Base,QColor(0x66, 0xe6, 0xff));
+        lightBluePalette.setColor(QPalette::Text,Qt::black);
+
         QString qsEP = QString::number(dEP, 'f', 2);
         profitAmount->setText(qsEP);
 
         QString qsEPPercent = QString::number(dEPPercent, 'f', 2) + "%";
         profitPercent->setText(qsEPPercent);
+
+        qInfo() << dEPPercent;
+
+        if(dEPPercent > 3)
+        {
+            profitPercent->setPalette(lightBluePalette);
+        }
+        else if(dEPPercent > 2)
+        {
+            profitPercent->setPalette(tealPalette);
+        }
+        else if(dEPPercent > 1)
+        {
+            profitPercent->setPalette(greenPalette);
+        }
+        else if(dEPPercent > 0)
+        {
+            profitPercent->setPalette(yellowPalette);
+        }
+        else
+        {
+            profitPercent->setPalette(redPalette);
+        }
 
         double dWinPercent = dbPushPerc + dbMiddlePerc;
         QString qsWinPerc = QString::number(dWinPercent, 'f', 2) + "%";

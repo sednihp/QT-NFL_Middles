@@ -7,18 +7,19 @@
 #include <QCheckBox>
 #include <QRadioButton>
 #include <QComboBox>
+#include <QPushButton>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
 QT_END_NAMESPACE
 
-class Widget : public QWidget
+class NFLMiddle : public QWidget
 {
     Q_OBJECT
 
 public:
-    Widget(QWidget *parent = nullptr);
-    ~Widget();
+    NFLMiddle(QWidget *parent = nullptr);
+    ~NFLMiddle();
 
 private:
     Ui::Widget *ui;
@@ -27,6 +28,9 @@ private:
 
     QLabel *amountLabel;
     QLineEdit *amountStake;
+
+    QLabel *seasonLabel, *weekLabel;
+    QLineEdit *qleSeason, *qleWeek;
 
     QLabel *homeLabel;
     QRadioButton *favHome, *underdogHome;
@@ -56,9 +60,13 @@ private:
     QLabel *winPercentLabel;
     QLineEdit *winPercent;
 
+    QPushButton *saveButton;
+
 private slots:
     void calculateStakes();
     void favTeamChanged();
     void underdogTeamChanged();
+    void spreadChanged();
+    void saveGame();
 };
 #endif // WIDGET_H

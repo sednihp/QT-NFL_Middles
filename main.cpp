@@ -5,8 +5,10 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    Widget w;
-    w.setGeometry(100,200,w.width(),w.height());
-    w.show();
+
+    NFLMiddle nflMiddle;
+    nflMiddle.setGeometry(100, 200, nflMiddle.width(), nflMiddle.height());
+    nflMiddle.show();
+
     return a.exec();
 }
