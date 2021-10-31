@@ -56,6 +56,9 @@ private:
     QLabel *winPercentLabel;
     QLineEdit *winPercent;
 
+private slots:
     void calculateStakes();
+    void favTeamChanged();
+    void underdogTeamChanged();
 };
 #endif // WIDGET_H

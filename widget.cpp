@@ -25,6 +25,8 @@ Widget::Widget(QWidget *parent)
     amountStake = new QLineEdit("40");
     amountStake->setAlignment(Qt::AlignCenter);
 
+    connect(amountStake, SIGNAL(textEdited(QString)), this, SLOT(calculateStakes()));
+
     homeLabel = new QLabel("Home");
     homeLabel->setAlignment(Qt::AlignCenter);
     favHome = new QRadioButton();
@@ -44,9 +46,13 @@ Widget::Widget(QWidget *parent)
     favTeam->setAlignment(Qt::AlignCenter);
     favTeam->setMaxLength(3);
 
+    connect(favTeam, SIGNAL(textEdited(QString)), this, SLOT(favTeamChanged()));
+
     underdogTeam = new QLineEdit("Car");
     underdogTeam->setAlignment(Qt::AlignCenter);
     underdogTeam->setMaxLength(3);
+
+    connect(underdogTeam, SIGNAL(textEdited(QString)), this, SLOT(underdogTeamChanged()));
 
     oddsLabel = new QLabel("Odds");
     oddsLabel->setAlignment(Qt::AlignCenter);
@@ -58,18 +64,26 @@ Widget::Widget(QWidget *parent)
     favOdds = new QLineEdit("1.66");
     favOdds->setAlignment(Qt::AlignCenter);
 
+    connect(favOdds, SIGNAL(textEdited(QString)), this, SLOT(calculateStakes()));
+
     underdogOdds = new QLineEdit("1.75");
     underdogOdds->setAlignment(Qt::AlignCenter);
+
+    connect(underdogOdds, SIGNAL(textEdited(QString)), this, SLOT(calculateStakes()));
 
     favComm = new QComboBox();
     favComm->addItem("2");
     favComm->addItem("0");
     favComm->addItem("5");
 
+    connect(favComm, SIGNAL(currentIndexChanged(int)), this, SLOT(calculateStakes()));
+
     underdogComm = new QComboBox();
     underdogComm->addItem("2");
     underdogComm->addItem("0");
     underdogComm->addItem("5");
+
+    connect(underdogComm, SIGNAL(currentIndexChanged(int)), this, SLOT(calculateStakes()));
 
     favStake = new QLineEdit("");
     favStake->setReadOnly(true);
@@ -230,6 +244,24 @@ Widget::~Widget()
     delete ui;
 }
 
+void Widget::favTeamChanged()
+{
+    QString favWinsStr = favTeam->displayText() + " wins by " + spread->displayText() + " or more";
+    favWinsLabel->setText(favWinsStr);
+
+    QString pushStr = favTeam->displayText() + " wins by exactly " + spread->displayText();
+    pushLabel->setText(pushStr);
+
+    QString middleStr = favTeam->displayText() + " wins by less than " + spread->displayText();
+    middleLabel->setText(middleStr);
+}
+
+void Widget::underdogTeamChanged()
+{
+    QString underdogStr = underdogTeam->displayText() + " wins";
+    underdogWinsLabel->setText(underdogStr);
+}
+
 void Widget::calculateStakes()
 {
     double dAmount = amountStake->displayText().toDouble();
@@ -333,5 +365,6 @@ void Widget::calculateStakes()
         winPercent->setText(qsWinPerc);
     }
 
+    db.close();
 }
 
